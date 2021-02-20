@@ -1,0 +1,8 @@
+[project.optional-dependencies]
+tests = [
+    'pytest',
+    "pre-commit"
+]
+
+[tool.black]
+line-length = 120
