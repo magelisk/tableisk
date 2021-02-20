@@ -1,9 +1,12 @@
 import typing
 
+from .colors import TextColors
+
 
 def display(data):
     table = Table(data)
-    print(table.formatted_text())
+    text = table.formatted_text()
+    print(text)
 
 
 class Table:
@@ -47,4 +50,4 @@ class Cell:
 
     def formatted_text(self, width=None):
         width = len(self.text) if not width else width
-        return f"{self.text:<{width}}"
+        return f"{TextColors.RED}{self.text:<{width}}{TextColors.RESET}"
