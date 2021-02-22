@@ -22,3 +22,5 @@ class TextColors:
     BRIGHT_WHITE = _mkcolor(97)
 
     RESET = _mkcolor(0)
+
+    NONE = ""

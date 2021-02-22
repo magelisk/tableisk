@@ -10,8 +10,29 @@ def display(data):
 
 
 class Table:
-    def __init__(self, data: typing.List[typing.List[typing.Any]]):
-        self.rows = [Row(row) for row in data]
+    def __init__(self, data: typing.List[typing.List[typing.Any]], headers=None):
+        if headers is None:
+            self._raw_data = data[1:]
+            self._headers = data[0]
+        else:
+            self._raw_data = data
+            self._headers = headers
+
+        # self.data = [Row(row) for row in self._raw_data]
+        self.data = []
+        for row in self._raw_data:
+            new_row = []
+            for item in row:
+                new_row.append(Cell(item))
+            self.data.append(new_row)
+
+    @property
+    def rows(self):
+        return _RowView(self.data)
+
+    @property
+    def cols(self):
+        return _ColView(self.data, self._headers)
 
     def formatted_text(self):
         # Collect widths for each row, and set final widths to max of each
@@ -22,6 +43,27 @@ class Table:
 
         text = "\n".join([row.formatted_text(max_widths) for row in self.rows])
         return text
+
+
+class _RowView:
+    def __init__(self, table_data):
+        self.data = table_data
+
+    def __getitem__(self, index):
+        return self.data[index]
+
+    def __len__(self):
+        return len(self.data)
+
+
+class _ColView:
+    def __init__(self, table_data, headers):
+        self.data = table_data
+        self._header_map = {name: i for i, name in enumerate(headers)}
+
+    def __getitem__(self, name_or_index):
+        index = self._header_map[name_or_index] if isinstance(name_or_index, str) else name_or_index
+        return [row[index] for row in self.data]
 
 
 class Row:
@@ -42,8 +84,13 @@ class Row:
 
 
 class Cell:
-    def __init__(self, text: typing.Any):
-        self.text = text
+    def __init__(self, data: typing.Any):
+        """
+        Args:
+            data: data to store display in this cell. Data item is immediatly converted to string.
+        """
+        # TODO: Should we do defered string conversion?
+        self.text = str(data)
 
     def cell_width(self) -> int:
         return len(self.text)
@@ -51,3 +98,12 @@ class Cell:
     def formatted_text(self, width=None):
         width = len(self.text) if not width else width
         return f"{TextColors.RED}{self.text:<{width}}{TextColors.RESET}"
+
+    def __eq__(self, other):
+        if isinstance(other, Cell):
+            return self == other.text
+        else:
+            return self.text == str(other)
+
+    def __repr__(self) -> str:
+        return self.text
