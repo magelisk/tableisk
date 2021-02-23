@@ -13,9 +13,9 @@ class Cell:
     def __init__(self, data: typing.Any):
         """
         Args:
-            data: data to store display in this cell. Data item is immediatly converted to string.
+            data: data to store display in this cell. Data item is immediately converted to string.
         """
-        # TODO: Should we do defered string conversion?
+        # TODO: Should we do deferred string conversion?
         self.text = str(data)
 
     def cell_width(self) -> int:
