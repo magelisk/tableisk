@@ -93,3 +93,52 @@ def test_colview_cell_widths(presized_colview):
 
     assert presized_colview["first"].cell_widths() == [5, 10]
     assert presized_colview["second"].cell_widths() == [3, 1]
+
+
+def test_cell_desired_width():
+    cell = Cell("12345")
+    assert cell.desired_width() == 5
+
+    cell = Cell("12345 123 12 1234567890")
+    assert cell.desired_width() == 23
+
+
+def test_cell_min_width():
+    cell = Cell("12345")
+    assert cell.min_width() == 5
+
+    cell = Cell("12345 123 12 1234567890")
+    assert cell.min_width() == 10
+
+
+def test_cell_text_no_wrapping():
+    """Default text output"""
+    cell = Cell("This line is 15")
+
+    text = cell.formatted_text()
+    assert len(text) == 1
+    assert len(text[0]) == 15
+
+
+def test_cell_text_with_wrapping():
+    """Test getting text for a line that does word wrapping"""
+    # Default
+    cell = Cell("This line is 15")
+
+    # Split halfway
+    text = cell.formatted_text(width=10)
+    assert len(text) == 2
+
+    assert len(text[0]) == 10
+    assert "This line " in text[0]
+
+    assert len(text[1]) == 10
+    assert "is 15     " in text[1]
+
+    # Split on each word
+    text = cell.formatted_text(width=4)
+    assert len(text) == 4
+    assert "This" == text[0]
+    assert "line" == text[1]
+    assert "is  " == text[2]
+    assert "15  " == text[3]

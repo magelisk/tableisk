@@ -1,6 +1,11 @@
+import shutil
 import typing
-
+import textwrap
 from .colors import TextColors
+
+
+def _get_terminal_width(fallback=120):
+    return shutil.get_terminal_size(fallback=(fallback, 40)).columns
 
 
 def display(data):
@@ -17,13 +22,31 @@ class Cell:
         """
         # TODO: Should we do deferred string conversion?
         self.text = str(data)
+        self.width = None
 
     def cell_width(self) -> int:
+        return max(map(len, self._text_lines()))
+
+    def desired_width(self):
+        """A Cell's desired with is how long it's full input text is with no wrapping"""
         return len(self.text)
 
+    def min_width(self):
+        """A Cell's min with is the smallest a cell can be without breaking words in work wrapping.
+        i.e. it is the length of the longest single token"""
+        return max(map(len, self.text.split()))
+
+    def _text_lines(self, width=None) -> typing.List[str]:
+        width = self.desired_width() if not width else width
+        split_lines = textwrap.wrap(self.text, width=width)
+        return split_lines
+
     def formatted_text(self, width=None):
-        width = len(self.text) if not width else width
-        return f"{TextColors.RED}{self.text:<{width}}{TextColors.RESET}"
+        width = self.desired_width() if not width else width
+        lines = self._text_lines(width)
+        lines = [f"{txt:<{width}}" for txt in lines]
+        return lines
+        # return f"{TextColors.RED}{self.text:<{width}}{TextColors.RESET}"
 
     def __eq__(self, other):
         if isinstance(other, Cell):
@@ -44,6 +67,10 @@ class _RowView:
 
     def __len__(self) -> int:
         return len(self.data)
+
+    def __iter__(self):
+        for row in self.data:
+            yield _RowView(row)
 
 
 class _ColView:
@@ -89,37 +116,29 @@ class Table:
                 new_row.append(Cell(item))
             self.data.append(new_row)
 
-    @property
-    def rows(self) -> _RowView:
-        return _RowView(self.data)
-
-    @property
-    def cols(self) -> _ColView:
-        return _ColView(self.data, self._headers)
+        self.rows = _RowView(self.data)
+        self.cols = _ColView(self.data, self._headers)
 
     def formatted_text(self):
         # Collect widths for each row, and set final widths to max of each
-        default_widths = [row.cell_widths() for row in self.rows]
+        max_widths = [max(col.cell_widths()) for col in self.cols]
 
-        transposed_widths = list(zip(*default_widths))
-        max_widths = [max(col) for col in transposed_widths]
+        text = []
+        for row in self.rows:
+            # Get each cell's text, but if it's wraps, we'll need to pad everything to same size for easy printing
 
-        text = "\n".join([row.formatted_text(max_widths) for row in self.rows])
+            cell_texts = [cell.formatted_text(width) for cell, width in zip(row.data, max_widths)]
+
+            wrapped_rows = max(map(len, cell_texts))
+
+            padded_texts = []
+            for texts, width in zip(cell_texts, max_widths):
+                rows_to_add = wrapped_rows - len(texts)
+                padded_texts.append(texts + [f"{'':<{width}}"] * rows_to_add)
+
+            for line_of_text in zip(*padded_texts):
+                row_text = " | ".join(line_of_text)
+                text.append(row_text)
+
+        text = "\n".join(text)
         return text
-
-
-# class Row:
-#     def __init__(self, data_elems: typing.List[typing.Any]):
-#         self.cells = [Cell(elem) for elem in data_elems]
-
-#     def cell_widths(self) -> typing.List[int]:
-#         return [cell.cell_width() for cell in self.cells]
-
-#     def formatted_text(self, widths: typing.List[int] = None):
-
-#         if widths is None:
-#             widths = [None] * len(self.cells)
-
-#         text = " | ".join([cell.formatted_text(width) for cell, width in zip(self.cells, widths)])
-
-# return text
