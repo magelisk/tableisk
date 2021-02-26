@@ -1,7 +1,7 @@
 import pytest
 
 from tableisk import Table, Cell
-from tableisk.table import _RowView, _ColView
+from tableisk import table
 
 
 def _transpose(data):
@@ -26,7 +26,8 @@ def presized_colview():
         [Cell("12345"), Cell("123")],
         [Cell("1234567890"), Cell("1")],
     ]
-    col = _ColView(sample_data, ["first", "second"])
+
+    col = table._ColView(sample_data, [Cell("first"), Cell("second")])
     return col
 
 
@@ -91,8 +92,9 @@ def test_colview_cell_widths(presized_colview):
     """Show that _ColView 'cell_widths' returns appropriate list"""
     # duplicate assertions with both index and title lookup
 
-    assert presized_colview["first"].cell_widths() == [5, 10]
-    assert presized_colview["second"].cell_widths() == [3, 1]
+    # NOTE: First element is header length!
+    assert presized_colview["first"].cell_widths() == [5, 5, 10]
+    assert presized_colview["second"].cell_widths() == [6, 3, 1]
 
 
 def test_cell_desired_width():
@@ -142,3 +144,40 @@ def test_cell_text_with_wrapping():
     assert "line" == text[1]
     assert "is  " == text[2]
     assert "15  " == text[3]
+
+
+def test_pad_text_list_nothing_needed():
+    starting = ["12345", "67890"]
+    result = table._pad_text_list(starting, 2, 5)
+    assert result == starting
+
+    result = table._pad_text_list(starting, 1, 5)
+    assert result == starting
+
+
+@pytest.mark.parametrize("padding_char", [" ", "-", "="])
+def test_pad_text_list_add_rows(padding_char):
+    starting = ["12345", "67890"]
+    expected_padding = padding_char * 5
+    result = table._pad_text_list(starting, 4, 5, padding_char=padding_char)
+    assert result[0] == starting[0]
+    assert result[1] == starting[1]
+    assert result[2] == expected_padding
+    assert result[3] == expected_padding
+
+
+def test_join_table_row():
+    inputs = [["Cell", "One ", "Text"], ["Second", "Text  ", "      "]]
+    result = table._join_table_row(inputs)
+
+    expected = [
+        "Cell | Second",
+        "One  | Text  ",
+        "Text |       ",
+    ]
+
+    assert result == expected
+
+
+def test_generate_table_row_mismatched_sizes():
+    assert False
