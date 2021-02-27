@@ -1,3 +1,10 @@
+from typing import Text
+
+# Reference pages:
+#  https://xdevs.com/guide/color_serial/
+#  http://en.wikipedia.org/wiki/ANSI_escape_code
+
+
 def _mkcolor(num):
     return "\033[" + str(num) + "m"
 
@@ -24,3 +31,8 @@ class TextColors:
     RESET = _mkcolor(0)
 
     NONE = ""
+
+
+# TODO: Different color codes for background!
+class BackgroundColors(TextColors):
+    pass

@@ -146,6 +146,36 @@ def test_cell_text_with_wrapping():
     assert "15  " == text[3]
 
 
+def test_cell_text_apply_color_formatter_single_row():
+    """Cell's formated_text can receive a color apply function and can apply that color to a single row"""
+    raise NotImplementedError()
+
+
+def test_cell_text_apply_color_formatter_mutli_row():
+    """Cell's formated_text can receive a color apply function and can apply that color to a wrapped multi rows"""
+    raise NotImplementedError()
+
+
+def test_colview_formatter_applies_to_each_cell():
+    """Setting a format function on _ColView applies it to each cell"""
+    raise NotImplementedError()
+
+
+def test_rowview_formatter_applies_to_each_cell():
+    """Setting a format function on _RowView applies it to each cell"""
+    raise NotImplementedError()
+
+
+def test_color_formatting_does_not_impact_cell_width():
+    """Make sure that colors are applied after wrapping, and don't impact cell_width"""
+    raise NotImplementedError()
+
+
+def test_formatter_precidence():
+    """When multiple formatters are set, apply preference in order of (most to least) Cell, _ColView, _RowView"""
+    assert False
+
+
 def test_pad_text_list_nothing_needed():
     starting = ["12345", "67890"]
     result = table._pad_text_list(starting, 2, 5)
@@ -179,5 +209,8 @@ def test_join_table_row():
     assert result == expected
 
 
-def test_generate_table_row_mismatched_sizes():
-    assert False
+def test_join_table_row_mismatched_sizes():
+    """Exception is raised if mismatched numbers of rows are provided to _join_table_row"""
+    inputs = [["Has  ", "Three ", "Lines"], ["Just", "Two "]]
+    with pytest.raises(ValueError):
+        _ = table._join_table_row(inputs)
