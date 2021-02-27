@@ -1,7 +1,12 @@
+from decimal import Clamped
+from typing import Text
+
+from _pytest.python_api import raises
+from tableisk.colors import TextColors
 import pytest
 
-from tableisk import Table, Cell
-from tableisk import table
+from tableisk import Table, Cell, CellColor
+from tableisk import table as tb
 
 
 def _transpose(data):
@@ -27,7 +32,7 @@ def presized_colview():
         [Cell("1234567890"), Cell("1")],
     ]
 
-    col = table._ColView(sample_data, [Cell("first"), Cell("second")])
+    col = tb._ColView(sample_data, [Cell("first"), Cell("second")])
     return col
 
 
@@ -48,6 +53,16 @@ def test_table_init_rows_and_cols(sample_data_no_wrap):
     assert table.cols[0] == expected_cols[0]
     assert table.cols[1] == expected_cols[1]
     assert table.cols[2] == expected_cols[2]
+
+
+def test_table_indexing(sample_data_no_wrap):
+    table = Table(sample_data_no_wrap)
+    row = table[-1]
+
+    assert row[0].text == "66"
+    assert row[1].text == "Big Ben"
+    assert row[-2].text == "London"
+    assert row[-1].text == "Yes"
 
 
 def test_cell_equality_against_raw_data_ie_equal():
@@ -146,6 +161,52 @@ def test_cell_text_with_wrapping():
     assert "15  " == text[3]
 
 
+def test_cell_format(sample_data_no_wrap):
+    table = Table(sample_data_no_wrap)
+    cell = table[-1][-1]
+
+    def cell_formatter(cell, col, row):
+        return CellColor(TextColors.GREEN, TextColors.NONE)
+
+    cell.formatter = cell_formatter
+
+    resulting_color = tb._get_color_formats(cell, table.cols[-1], table[1])
+    assert resulting_color == CellColor(TextColors.GREEN, TextColors.NONE)
+
+
+def test_col_formatter_retrieval(sample_data_no_wrap):
+    """Setting a format function on a column from _ColView applies it to each cell"""
+    table = Table(sample_data_no_wrap)
+    col = table.cols["Still Around?"]
+
+    def col_formatter(cell, col, row):
+        return CellColor(TextColors.BLUE, TextColors.NONE)
+
+    col.formatter = col_formatter
+    for cell in col:
+        resulting_color = tb._get_color_formats(cell, col, table[1])
+        assert resulting_color == CellColor(TextColors.BLUE, TextColors.NONE)
+
+
+def test_row_formatter_retrieval(sample_data_no_wrap):
+    """Setting a format function on a row from _RowView applies it to each cell"""
+    table = Table(sample_data_no_wrap)
+    row = table[1]
+
+    def row_formatter(cell, col, row):
+        return CellColor(TextColors.YELLOW, TextColors.NONE)
+
+    row.formatter = row_formatter
+
+    for cell in row:
+        resulting_color = tb._get_color_formats(cell, table.cols[-1], row)
+        assert resulting_color == CellColor(TextColors.YELLOW, TextColors.NONE)
+
+
+def test_colview_formatter_applies_to_each_cell(sample_data_no_wrap):
+    raise NotImplementedError()
+
+
 def test_cell_text_apply_color_formatter_single_row():
     """Cell's formated_text can receive a color apply function and can apply that color to a single row"""
     raise NotImplementedError()
@@ -153,11 +214,6 @@ def test_cell_text_apply_color_formatter_single_row():
 
 def test_cell_text_apply_color_formatter_mutli_row():
     """Cell's formated_text can receive a color apply function and can apply that color to a wrapped multi rows"""
-    raise NotImplementedError()
-
-
-def test_colview_formatter_applies_to_each_cell():
-    """Setting a format function on _ColView applies it to each cell"""
     raise NotImplementedError()
 
 
@@ -178,10 +234,10 @@ def test_formatter_precidence():
 
 def test_pad_text_list_nothing_needed():
     starting = ["12345", "67890"]
-    result = table._pad_text_list(starting, 2, 5)
+    result = tb._pad_text_list(starting, 2, 5)
     assert result == starting
 
-    result = table._pad_text_list(starting, 1, 5)
+    result = tb._pad_text_list(starting, 1, 5)
     assert result == starting
 
 
@@ -189,7 +245,7 @@ def test_pad_text_list_nothing_needed():
 def test_pad_text_list_add_rows(padding_char):
     starting = ["12345", "67890"]
     expected_padding = padding_char * 5
-    result = table._pad_text_list(starting, 4, 5, padding_char=padding_char)
+    result = tb._pad_text_list(starting, 4, 5, padding_char=padding_char)
     assert result[0] == starting[0]
     assert result[1] == starting[1]
     assert result[2] == expected_padding
@@ -198,7 +254,7 @@ def test_pad_text_list_add_rows(padding_char):
 
 def test_join_table_row():
     inputs = [["Cell", "One ", "Text"], ["Second", "Text  ", "      "]]
-    result = table._join_table_row(inputs)
+    result = tb._join_table_row(inputs)
 
     expected = [
         "Cell | Second",
@@ -213,4 +269,4 @@ def test_join_table_row_mismatched_sizes():
     """Exception is raised if mismatched numbers of rows are provided to _join_table_row"""
     inputs = [["Has  ", "Three ", "Lines"], ["Just", "Two "]]
     with pytest.raises(ValueError):
-        _ = table._join_table_row(inputs)
+        _ = tb._join_table_row(inputs)

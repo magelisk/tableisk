@@ -12,12 +12,11 @@ def _get_terminal_width(fallback=120):
 
 def display(data):
     table = Table(data)
-    text = _output_table_bash_console(table)
+    text = _output_table_bash(table)
     # text = table.formatted_text()
     print(text)
 
 
-# CellColor = namedtuple("CellColor", ["text_color", "background_color"])
 class CellColor(typing.NamedTuple):
     text: TextColors
     background: BackgroundColors
@@ -32,6 +31,7 @@ class Cell:
         # TODO: Should we do deferred string conversion?
         self.text = str(data)
         self.width = None
+        self.formatter = _noop_formatter
 
     def cell_width(self) -> int:
         return max(map(len, self._text_lines()))
@@ -50,20 +50,20 @@ class Cell:
         split_lines = textwrap.wrap(self.text, width=width)
         return split_lines
 
-    def color_formatter(self, formatter: typing.Callable):
-        """Takes a callable function with the signature:
+    # def color_formatter(self, formatter: typing.Callable):
+    #     """Takes a callable function with the signature:
 
-        ::
-          def formatter(cell: Cell, column: List[Cell], row: List[Cell], current_format: CellColor) -> CellColor
+    #     ::
+    #       def formatter(cell: Cell, column: List[Cell], row: List[Cell], current_format: CellColor) -> CellColor
 
-        The content of CellColor defines the text color and background color to use for this cell.
-        Because multiple formatters can apply to the same cell, they will be evaluated in the order of
-        Row --> Col --> Cell with later ones overriding earlier ones. Therefore:
-        * If you wish to return no change/take no action in a formatter, set the field in CellColor to None
-        * If you wish to explicitly remove any other formatting, set the field in CellColor to
-          the appropriate RESET value
-        """
-        self._formatter = formatter
+    #     The content of CellColor defines the text color and background color to use for this cell.
+    #     Because multiple formatters can apply to the same cell, they will be evaluated in the order of
+    #     Row --> Col --> Cell with later ones overriding earlier ones. Therefore:
+    #     * If you wish to return no change/take no action in a formatter, set the field in CellColor to None
+    #     * If you wish to explicitly remove any other formatting, set the field in CellColor to
+    #       the appropriate RESET value
+    #     """
+    #     self._formatter = formatter
 
     def formatted_text(self, width=None):
         width = self.desired_width() if not width else width
@@ -82,12 +82,17 @@ class Cell:
         return self.text
 
 
+def _noop_formatter(cell, col, row):
+    return CellColor(None, None)
+
+
 class _RowView:
     def __init__(self, table_data):
         self.data = table_data
+        self._rows = [_Row(cells) for cells in table_data]
 
     def __getitem__(self, index) -> typing.List[Cell]:
-        return self.data[index]
+        return self._rows[index]
 
     def __len__(self) -> int:
         return len(self.data)
@@ -97,6 +102,18 @@ class _RowView:
             yield _RowView(row)
 
 
+class _Row:
+    def __init__(self, row_cell: typing.List[Cell]):
+        self.data = row_cell
+        self.formatter = _noop_formatter
+
+    def __eq__(self, other):
+        return self.data == other
+
+    def __getitem__(self, index) -> typing.List[Cell]:
+        return self.data[index]
+
+
 class _ColView:
     def __init__(self, table_data, headers):
         self.data = table_data
@@ -104,16 +121,20 @@ class _ColView:
         self._header_map = {header.text: i for i, header in enumerate(headers)}
         # TODO: Premake _Col entries so we can preserve formatter functions
 
+        self._cols = [
+            _Col([row[index] for row in self.data], self._headers[index]) for index in range(len(self._headers))
+        ]
+
     def __getitem__(self, name_or_index) -> typing.List[Cell]:
         index = self._header_map[name_or_index] if isinstance(name_or_index, str) else name_or_index
-        header_cell = self._headers[index]
-        return _Col([row[index] for row in self.data], header_cell)
+        return self._cols[index]
 
 
 class _Col:
     def __init__(self, col_cells: typing.List[Cell], header_cell: Cell):
         self._cells = col_cells
         self._header_cell = header_cell
+        self.formatter = _noop_formatter
 
     def cell_widths(self) -> typing.List[int]:
         return [self._header_cell.cell_width()] + [cell.cell_width() for cell in self._cells]
@@ -125,6 +146,10 @@ class _Col:
             return other._cells == self._cells
         else:
             raise TypeError(f"Cannot equality compare types {other.__class__} and {self.__class__}")
+
+    def __iter__(self) -> Cell:
+        for cell in self._cells:
+            yield cell
 
 
 class Table:
@@ -148,33 +173,8 @@ class Table:
         self.rows = _RowView(self.data)
         self.cols = _ColView(self.data, self._headers)
 
-    # def formatted_text(self):
-    #     # Collect widths for each row, and set final widths to max of each
-    #     max_widths = [max(col.cell_widths()) for col in self.cols]
-
-    #     text = []
-
-    #     # Render header
-    #     # TODO: Pull this render logic into separate function so it's not so copy/paste
-    #     cell_texts = [cell.formatted_text(width) for cell, width in zip(self._headers, max_widths)]
-    #     num_wrapped_rows = max(map(len, cell_texts))
-    #     padded_texts = [_pad_text_list(texts, num_wrapped_rows, width) for texts, width in zip(cell_texts, max_widths)]
-    #     text += _join_table_row(padded_texts)
-
-    #     for row in self.rows:
-    #         # Get each cell's text, but if it's wraps, we'll need to pad everything to same size for easy printing
-    #         cell_texts = [cell.formatted_text(width) for cell, width in zip(row.data, max_widths)]
-
-    #         num_wrapped_rows = max(map(len, cell_texts))
-
-    #         padded_texts = [
-    #             _pad_text_list(texts, num_wrapped_rows, width) for texts, width in zip(cell_texts, max_widths)
-    #         ]
-
-    #         text += _join_table_row(padded_texts)
-
-    #     text = "\n".join(text)
-    #     return text
+    def __getitem__(self, index) -> typing.List[Cell]:
+        return self.rows[index]
 
 
 def _pad_text_list(original_text_list, desired_size, padding_width, padding_char="") -> typing.List[str]:
@@ -213,23 +213,47 @@ def _join_table_row(cell_texts: typing.List[typing.List[str]]) -> typing.List[st
     return lines
 
 
-def _generate_row_text_lines(row, widths):
+def _get_color_formats(cell: Cell, col: _Col, row: _Row):
+    def _merge_colors(orig: CellColor, new: CellColor):
+        text_color = orig.text
+        back_color = orig.background
+        if new.text is not None:
+            text_color = new.text
+        if new.background is not None:
+            back_color = new.background
+        return CellColor(text_color, back_color)
+
+    row_colors = row.formatter(cell, col, row)
+    col_colors = col.formatter(cell, col, row)
+    cell_colors = cell.formatter(cell, col, row)
+
+    result = _merge_colors(row_colors, col_colors)
+    result = _merge_colors(result, cell_colors)
+    return result
+
+
+def _apply_colors_bash(cell_texts: typing.List[typing.List[str]], cell_colors: typing.List[CellColor]):
+    return cell_texts
+
+
+def _generate_row_text_lines_bash(row, widths):
     cell_texts = [cell.formatted_text(width) for cell, width in zip(row, widths)]
     num_wrapped_rows = max(map(len, cell_texts))
     padded_texts = [_pad_text_list(texts, num_wrapped_rows, width) for texts, width in zip(cell_texts, widths)]
+
+    cell_colors = [_get_color_formats(cell) for cell in row]
+    _apply_colors_bash(padded_texts, cell_colors)
     return _join_table_row(padded_texts)
 
 
-def _output_table_bash_console(table: Table):
+def _output_table_bash(table: Table):
     # Collect widths for each row, and set final widths to max of each
     max_widths = [max(col.cell_widths()) for col in table.cols]
 
-    text = []
-
-    text = _generate_row_text_lines(table._headers, max_widths)
+    text = _generate_row_text_lines_bash(table._headers, max_widths)
 
     for row in table.rows:
-        text += _generate_row_text_lines(row.data, max_widths)
+        text += _generate_row_text_lines_bash(row.data, max_widths)
 
     text = "\n".join(text)
     return text
