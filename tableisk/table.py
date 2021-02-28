@@ -98,8 +98,8 @@ class _RowView:
         return len(self.data)
 
     def __iter__(self):
-        for row in self.data:
-            yield _RowView(row)
+        for row in self._rows:
+            yield row
 
 
 class _Row:
@@ -119,8 +119,6 @@ class _ColView:
         self.data = table_data
         self._headers = headers
         self._header_map = {header.text: i for i, header in enumerate(headers)}
-        # TODO: Premake _Col entries so we can preserve formatter functions
-
         self._cols = [
             _Col([row[index] for row in self.data], self._headers[index]) for index in range(len(self._headers))
         ]
@@ -233,27 +231,45 @@ def _get_color_formats(cell: Cell, col: _Col, row: _Row):
 
 
 def _apply_colors_bash(cell_texts: typing.List[typing.List[str]], cell_colors: typing.List[CellColor]):
-    return cell_texts
+    output = []
+    for text, colors in zip(cell_texts, cell_colors):
+        if colors.text is not None or colors.background is not None:
+            tc = colors.text if colors.text is not None else ""
+            bc = colors.background if colors.text is not None else ""
+            reset = TextColors.RESET if tc != "" or bc != "" else ""
+
+            new_text = [f"{tc}{bc}{t}{reset}" for t in text]
+            output.append(new_text)
+        else:
+            output.append(text)
+
+    return output
 
 
-def _generate_row_text_lines_bash(row, widths):
+def _generate_row_text_lines_bash(row, widths, cell_colors):
     cell_texts = [cell.formatted_text(width) for cell, width in zip(row, widths)]
     num_wrapped_rows = max(map(len, cell_texts))
     padded_texts = [_pad_text_list(texts, num_wrapped_rows, width) for texts, width in zip(cell_texts, widths)]
 
-    cell_colors = [_get_color_formats(cell) for cell in row]
-    _apply_colors_bash(padded_texts, cell_colors)
-    return _join_table_row(padded_texts)
+    formatted_texts = _apply_colors_bash(padded_texts, cell_colors)
+    return _join_table_row(formatted_texts)
 
 
 def _output_table_bash(table: Table):
     # Collect widths for each row, and set final widths to max of each
     max_widths = [max(col.cell_widths()) for col in table.cols]
 
-    text = _generate_row_text_lines_bash(table._headers, max_widths)
+    # TODO: ADD BACK
+    text = []
+    header_col_mapping = zip(table._headers, table.cols)
+    cell_colors = [_get_color_formats(cell, col, _Row(table._headers)) for cell, col in header_col_mapping]
+    text = _generate_row_text_lines_bash(table._headers, max_widths, cell_colors)
 
     for row in table.rows:
-        text += _generate_row_text_lines_bash(row.data, max_widths)
+        header_col_mapping = zip(row, table.cols)
+        cell_colors = [_get_color_formats(cell, col, row) for cell, col in zip(row, table.cols)]
+
+        text += _generate_row_text_lines_bash(row.data, max_widths, cell_colors)
 
     text = "\n".join(text)
     return text

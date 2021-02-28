@@ -33,6 +33,25 @@ class TextColors:
     NONE = ""
 
 
-# TODO: Different color codes for background!
-class BackgroundColors(TextColors):
-    pass
+class BackgroundColors:
+    BLACK = _mkcolor(40)
+    RED = _mkcolor(41)
+    GREEN = _mkcolor(42)
+    YELLOW = _mkcolor(43)
+    BLUE = _mkcolor(44)
+    MAGENTA = _mkcolor(45)
+    CYAN = _mkcolor(46)
+    WHITE = _mkcolor(47)
+
+    BRIGHT_BLACK = _mkcolor(100)
+    BRIGHT_RED = _mkcolor(101)
+    BRIGHT_GREEN = _mkcolor(102)
+    BRIGHT_YELLOW = _mkcolor(103)
+    BRIGHT_BLUE = _mkcolor(104)
+    BRIGHT_MAGENTA = _mkcolor(105)
+    BRIGHT_CYAN = _mkcolor(106)
+    BRIGHT_WHITE = _mkcolor(107)
+
+    RESET = _mkcolor(0)
+
+    NONE = ""
